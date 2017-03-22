@@ -1,7 +1,6 @@
 package com.example.groupsend;
 
 import android.Manifest;
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.content.DialogInterface;
@@ -11,6 +10,8 @@ import android.database.Cursor;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.DialogFragment;
+import android.support.v4.app.FragmentActivity;
 import android.support.v4.content.ContextCompat;
 import android.telephony.SmsManager;
 import android.view.View;
@@ -24,7 +25,8 @@ import android.widget.Toast;
 
 import java.util.ArrayList;
 
-public class GroupSend extends Activity {
+public class GroupSend extends FragmentActivity implements HintDialogFragment.DialogFragmentCallback
+        , HintDialogFragmentContracts.DialogFragmentCallbackCONTRACTS {
     EditText numbers,content;
     Button select,send;
     SmsManager sManager;
@@ -32,8 +34,12 @@ public class GroupSend extends Activity {
     ArrayList<String> sendList=new ArrayList<String>();
     // this request code is used to distinguish system permission dialogs
     private static final int MY_PERMISSIONS_REQUEST_SEND_SMS = 1;
-
     private static final int MY_PERMISSIONS_REQUEST_READ_CONTRACTS = 1;
+
+    // this request code is used to distinguish normal dialogs
+    private static final int HINT_DIALOG_EXPLAIN_CALENDAR_PERMISSION_REQUEST_CODE = 1;
+    private static final int HINT_DIALOG_EXPLAIN_CALENDAR_PERMISSION_REQUEST_CODE_CONTRACTS = 1;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -45,19 +51,23 @@ public class GroupSend extends Activity {
         sManager=SmsManager.getDefault();
         select.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                selectContracts(view);
+            public void onClick(View view1) {
+                selectContracts(view1);
             }
         });
         send.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                textMessage(view);
+            public void onClick(View view2) {
+                textMessage(view2);
             }
         });
     }
 
-    private void selectContracts(View view) {
+    /**
+     * 获取联系人
+     * @param view1
+     */
+    public void selectContracts(View view1) {
         //检查权限
         if(ContextCompat.checkSelfPermission(this,Manifest.permission.READ_CONTACTS)
                 !=PackageManager.PERMISSION_GRANTED){
@@ -67,9 +77,17 @@ public class GroupSend extends Activity {
             if(ActivityCompat.shouldShowRequestPermissionRationale(GroupSend.this,
                     Manifest.permission.READ_CONTACTS)){
 
+                //去设置关闭通讯录权限时，点击选择联系人，跳出DialogFragment对话框
+                DialogFragment newFragment=HintDialogFragmentContracts.newInstance(
+                        R.string.hint_description_contracts_title,
+                        R.string.hint_description_why_we_need_the_permission_contracts,
+                        HINT_DIALOG_EXPLAIN_CALENDAR_PERMISSION_REQUEST_CODE_CONTRACTS);
+                newFragment.show(getSupportFragmentManager(),"Authority Dialog");
+                Toast.makeText(GroupSend.this, "这个设置关闭的通讯录", Toast.LENGTH_SHORT).show();
+
             }else{
                 // No explanation needed, we can request the permission.
-                //申请授权
+                //申请授权，点击后跳出是否开启通讯录权限，点击是后打开通讯录权限
                 ActivityCompat.requestPermissions(GroupSend.this,
                         new String[]{Manifest.permission.READ_CONTACTS},
                         MY_PERMISSIONS_REQUEST_READ_CONTRACTS);
@@ -78,7 +96,6 @@ public class GroupSend extends Activity {
         else{
             //has permission, do operation directly
             //选择通讯录中要发送消息的号码
-            // final
             final Cursor cursor=getContentResolver().query(
                     ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
                     null,null,null,null);
@@ -154,7 +171,11 @@ public class GroupSend extends Activity {
         return false;
     }
 
-    private void textMessage(View view) {
+    /**
+     * 群发消息
+     * @param view2
+     */
+    public void textMessage(View view2) {
         //检查权限
         if(ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS)
                 != PackageManager.PERMISSION_GRANTED){
@@ -163,6 +184,14 @@ public class GroupSend extends Activity {
             // Should we show an explanation?
             if(ActivityCompat.shouldShowRequestPermissionRationale(GroupSend.this,
                     Manifest.permission.SEND_SMS)){
+
+                //去设置关闭短信权限时点击发送消息，跳出DialogFragment对话框
+                DialogFragment newFragment=HintDialogFragment.newInstance(
+                        R.string.hint_description_title,
+                        R.string.hint_description_why_we_need_the_permission,
+                        HINT_DIALOG_EXPLAIN_CALENDAR_PERMISSION_REQUEST_CODE);
+                newFragment.show(getSupportFragmentManager(),"Authority Dialog");
+                Toast.makeText(GroupSend.this, "这个设置关闭的消息", Toast.LENGTH_SHORT).show();
 
             }else{
                 // No explanation needed, we can request the permission.
@@ -182,6 +211,53 @@ public class GroupSend extends Activity {
                         content.getText().toString(),pi,null);
             }
             Toast.makeText(GroupSend.this,"消息发送完毕!",Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void doPositiveClick(int requestCode){
+        //申请授权
+        if(HINT_DIALOG_EXPLAIN_CALENDAR_PERMISSION_REQUEST_CODE==requestCode){
+            ActivityCompat.requestPermissions(GroupSend.this,
+                    new String[]{Manifest.permission.SEND_SMS},
+                    MY_PERMISSIONS_REQUEST_SEND_SMS);
+        }
+    }
+
+    @Override
+    public void doPositiveContractsClick(int requestCode){
+        //申请授权
+        if(HINT_DIALOG_EXPLAIN_CALENDAR_PERMISSION_REQUEST_CODE_CONTRACTS==requestCode){
+            ActivityCompat.requestPermissions(GroupSend.this,
+                    new String[]{Manifest.permission.READ_CONTACTS},
+                    MY_PERMISSIONS_REQUEST_READ_CONTRACTS);
+        }
+    }
+
+    /**
+     * 跳出权限，点击关闭后回调
+     * @param requestCode
+     * @param permissions
+     * @param grantResults
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults) {
+
+        if (requestCode == MY_PERMISSIONS_REQUEST_SEND_SMS ||
+                requestCode==MY_PERMISSIONS_REQUEST_READ_CONTRACTS) {
+            // If request is cancelled, the result arrays are empty.
+            if (grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+                // permission was granted, yay! Do the
+                // contacts-related task you need to do.
+            } else {
+
+                // permission denied, boo! Disable the
+                // functionality that depends on this permission.
+                Toast.makeText(GroupSend.this, "Permission Denied", Toast.LENGTH_SHORT).show();
+            }
+            return;
         }
     }
 }

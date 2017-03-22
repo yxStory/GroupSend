@@ -4,4 +4,13 @@
     <string name="content">短信内容：</string>
     <string name="select">选择联系人</string>
     <string name="send">发送消息</string>
+
+    <string name="alert_dialog_ok">OK</string>
+    <string name="alert_dialog_cancel">Cancel</string>
+    <string name="hint_description_title">请去设置中打开短信权限！</string>
+    <string name="hint_description_why_we_need_the_permission">没有权限将无法发送短信！</string>
+
+    <string name="hint_description_contracts_title">请去设置中打开通讯录权限！</string>
+    <string name="hint_description_why_we_need_the_permission_contracts">没有权限，访问通讯录将失败！</string>
+
 </resources>
